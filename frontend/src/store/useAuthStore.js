@@ -8,7 +8,55 @@ export const useAuthStore = create((set) => ({
   isLoggingIn: false,
   isSigningUp: false,
   isUpdatingProfile: false,
+  isCheckingAuth: true,
   onlineUsers: [],
+
+  checkAuth: async () => {
+    set({ isCheckingAuth: true });
+    try {
+      const res = await axiosInstance.get("/auth/check");
+      set({ authUser: res.data });
+      
+      // Connect socket with the JWT token after successful auth check
+      const token = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("jwt="))
+        ?.split("=")[1];
+      
+      if (token) {
+        useChatStore.getState().connectSocket(token);
+      }
+    } catch (error) {
+      console.log("Error in checkAuth:", error);
+      set({ authUser: null });
+    } finally {
+      set({ isCheckingAuth: false });
+    }
+  },
+
+  signup: async (formData) => {
+    set({ isSigningUp: true });
+    try {
+      const res = await axiosInstance.post("/auth/signup", formData);
+      set({ authUser: res.data });
+      
+      // Connect socket with JWT token after successful signup
+      const token = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("jwt="))
+        ?.split("=")[1];
+      
+      if (token) {
+        useChatStore.getState().connectSocket(token);
+      }
+      
+      toast.success("Account created successfully");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Signup failed");
+    } finally {
+      set({ isSigningUp: false });
+    }
+  },
 
   login: async (formData) => {
     set({ isLoggingIn: true });
@@ -45,5 +93,19 @@ export const useAuthStore = create((set) => ({
     }
   },
 
-  // ... rest of your store code
+  updateProfile: async (data) => {
+    set({ isUpdatingProfile: true });
+    try {
+      const res = await axiosInstance.put("/auth/update-profile", data);
+      set({ authUser: res.data });
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.log("Error in update profile:", error);
+      toast.error(error.response?.data?.message || "Profile update failed");
+    } finally {
+      set({ isUpdatingProfile: false });
+    }
+  },
+
+  setOnlineUsers: (users) => set({ onlineUsers: users }),
 }));
